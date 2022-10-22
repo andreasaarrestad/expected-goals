@@ -22,7 +22,7 @@ def get_teams(teams_df):
 
     return home_team, away_team
 
-def read_xml(dir='./data/'):
+def read_xml(dir='./startcode/', num_games = False):
     # Iterate over files in dir
     dfs = []
     for i, filename in enumerate(os.listdir(dir)):
@@ -44,11 +44,52 @@ def read_xml(dir='./data/'):
 
     return df
 
+def add_cumulative_gamestate(df):
+    df = df.copy()
+
+    # red card calculation 
+    df.loc[(df['type'] == 50) & (df['side'] == 'home'), 'red_card_home_cum'] = 1
+    df.loc[(df['type'] == 50) & (df['side'] == 'away'), 'red_card_away_cum'] = 1
+    df[['red_card_home_cum','red_card_away_cum']] = df[['red_card_home_cum','red_card_away_cum']].fillna(0)
+    df[['red_card_home_cum', 'red_card_away_cum']] = df.groupby('match_id')[['red_card_home_cum', 'red_card_away_cum']].cumsum()
+
+    # yellow card calculation 
+    df.loc[(df['type'] == 40) & (df['side'] == 'home'), 'yellow_card_home_cum'] = 1
+    df.loc[(df['type'] == 40) & (df['side'] == 'away'), 'yellow_card_away_cum'] = 1
+    df[['yellow_card_home_cum','yellow_card_away_cum']] = df[['yellow_card_home_cum','yellow_card_away_cum']].fillna(0)
+    df[['yellow_card_home_cum','yellow_card_away_cum']] = df.groupby('match_id')[['yellow_card_home_cum', 'yellow_card_away_cum']].cumsum()
+
+    # attacks
+    df.loc[(df['type'] == 1126) & (df['side'] == 'home'), 'attacks_home_cum'] = 1
+    df.loc[(df['type'] == 1126) & (df['side'] == 'away'), 'attacks_away_cum'] = 1
+    df[['attacks_home_cum','attacks_away_cum']] = df[['attacks_home_cum','attacks_away_cum']].fillna(0)
+    df[['attacks_home_cum','attacks_away_cum']] = df.groupby('match_id')[['attacks_home_cum', 'attacks_away_cum']].cumsum()
+
+    # dangerous attacks
+    df.loc[(df['type'] == 1029) & (df['side'] == 'home'), 'dangerous_attacks_home_cum'] = 1
+    df.loc[(df['type'] == 1029) & (df['side'] == 'away'), 'dangerous_attacks_away_cum'] = 1
+    df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']].fillna(0)
+    df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df.groupby('match_id')[['dangerous_attacks_home_cum', 'dangerous_attacks_away_cum']].cumsum()
+
+    # turnover 
+    df['prev_side'] = df.groupby('match_id')['side'].shift()
+    home_loses_possession = (df['prev_side'] == 'home') & (df['side'] == 'away')
+    away_loses_possession = (df['side'] == 'home') & (df['prev_side'] == 'away')
+    df.loc[home_loses_possession | away_loses_possession, 'turnover_cum'] = 1
+    df['turnover_cum'] = df['turnover_cum'].fillna(0)
+    df['turnover_cum'] = df.groupby('match_id')['turnover_cum'].cumsum()
+    df.drop(['prev_side'], axis=1)
+
+    return df
+
 def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
     # Compute solid angle is time consuming, optional
 
-    df = read_xml()
+    df = read_xml(num_games = num_games)
+
+    # engineer cumulative game state features
+    df = add_cumulative_gamestate(df)
 
     # Get relevant events only
     df = df[df['type'].isin(relevant_events)]
@@ -72,7 +113,6 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
         )
 
     df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
-
     return df
 
     
