@@ -23,9 +23,19 @@ def get_teams(teams_df):
     return home_team, away_team
 
 def get_shots(dir, filename):
-    shotsontarget = pd.read_xml(dir+filename, iterparse={'shotsontarget': ['t1', 't2']})
-    shotsoftarget = pd.read_xml(dir+filename, iterparse={'shotsofftarget': ['t1', 't2']})
-    shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
+    # try statements to cover ParserError if xml does not have the right tag
+    try:
+        shotsontarget = pd.read_xml(dir+filename, iterparse={'shotsontarget': ['t1', 't2']})
+    except:
+        shotsontarget = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    try:
+        shotsoftarget = pd.read_xml(dir+filename, iterparse={'shotsofftarget': ['t1', 't2']})
+    except:
+        shotsoftarget = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    try:
+        shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
+    except:
+        shotsblocked = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
 
     home_team = [shotsontarget.t1.values[0], shotsoftarget.t1.values[0], shotsblocked.t1.values[0]]
     away_team = [shotsontarget.t2.values[0], shotsoftarget.t2.values[0], shotsblocked.t2.values[0]]
