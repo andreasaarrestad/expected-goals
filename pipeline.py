@@ -37,7 +37,13 @@ def get_shots(dir, filename):
 def read_xml(dir='./startcode/', num_games = False):
     # Iterate over files in dir
     dfs = []
+
+    if num_games is False:
+        num_games = len(os.listdir(dir))
+    
     for i, filename in enumerate(os.listdir(dir)):
+        if i>=num_games:
+            break
 
         events_df = pd.read_xml(dir + filename, iterparse=EVENTS_PARSER)
         teams_df = pd.read_xml(dir + filename, iterparse=TEAM_NAME_PARSER)
@@ -104,7 +110,7 @@ def add_cumulative_gamestate(df):
 
     return df
 
-def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}):
+def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
     # Compute solid angle is time consuming, optional
 
