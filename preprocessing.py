@@ -45,6 +45,13 @@ def get_relative_coordinates(df):
     df.loc[~home, 'posy'] = PITCH_WIDTH / 2 - df.loc[~home, 'posy']
 
     return df['posx'], df['posy']
+
+def compute_if_shot_is_in_boxes(df):
+    df = df.copy()
+    rel_x, rel_y = get_relative_coordinates(df)
+    df['is_in_penalty_area'] = ((rel_x <= 16.5) & (rel_y >= -20.16) & (rel_y <= 20.16)).astype(int)
+    df['is_in_goal_area'] = ((rel_x <= 5.5) & (rel_y >= -9.16) & (rel_y <= 9.16)).astype(int)
+    return df
         
 def compute_distance_to_goal(df):
     """
@@ -55,11 +62,17 @@ def compute_distance_to_goal(df):
     
     return distance
 
-def compute_angle_to_goal(df):
+def compute_angle_to_goal(df, between_goal_posts=False):
     """
-    Computes the radian angle to the goal from a relative position on the pitch.
+    Computes the radian angle to the goal from a position on the pitch.
     """
     x, y = get_relative_coordinates(df)
+    if between_goal_posts:
+        dot_product = x*x + ((GOAL_WIDTH/2)+y)*(-(GOAL_WIDTH/2)+y)
+        prod_magnitude = np.sqrt((x**2) + ((y+(GOAL_WIDTH/2)))**2)*np.sqrt((x**2) + ((y-(GOAL_WIDTH/2)))**2)
+        theta = np.arccos(dot_product/prod_magnitude)
+        return theta
+    
     return np.arctan(y/x)
 
 ##--------------------------------------##
