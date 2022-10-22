@@ -11,14 +11,14 @@ def add_on_target_prob(df: pd.DataFrame, modelchoice = "linear") -> pd.DataFrame
 
     df["on_target"] = (df["type"].isin(on_target_ids)).astype(int)
 
-    data = df[["distance", "angle", "solid_angle", "on_target"]]
+    data = df[["distance", "goal_opening_angle", "on_target"]]
     data_train, data_test = train_test_split(data, test_size = 0.2, random_state = 43)
 
     if modelchoice == "linear":
-        model = smf.ols(formula = "on_target ~ distance + angle + distance * angle", data = data_train)
+        model = smf.ols(formula = "on_target ~ distance + goal_opening_angle + distance * goal_opening_angle", data = data_train)
         result = model.fit()
     elif modelchoice == "logit":
-        model = smf.logit(formula = "on_target ~ distance + angle + distance * angle", data = data_train)
+        model = smf.logit(formula = "on_target ~ distance + goal_opening_angle + distance * goal_opening_angle", data = data_train)
         result = model.fit()
         
     df["on_target_pred"] = result.predict(df)

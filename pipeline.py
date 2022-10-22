@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 import os
+from function import add_on_target_prob
 
-from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal, encode_prev_event
+from preprocessing import compute_goal_opening_angle, encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal, encode_prev_event
 
 SEED = 42
 EVENTS_PARSER = {"event": ["type", "stime", "side", "mtime", "info", 'posx', 'posy', "matchscore", 'extrainfo']}
@@ -123,17 +124,16 @@ def add_score_features(df: pd.DataFrame) -> pd.DataFrame:
     df["goals_home"] = (score[0]).astype(int)
     df["goals_away"] = (score[1]).astype(int)
 
-    df["home_goals_up"] = df["goals_home"] - df["goals_away"]
-    df["away_goals_up"] = df["goals_away"] - df["goals_home"]
+    df["goal_diff"] = np.abs(df["goals_home"] - df["goals_away"])
+    
     
     df["home_lead"] = (df["goals_home"] > df["goals_away"]).astype(int)
     df["away_lead"] = (df["goals_away"] > df["goals_home"]).astype(int)
-    df.drop(columns = ["away_goals_up", "matchscore"], inplace = True)
 
     df["min_remaining"] = 90 - df["minutes"]
-    df["goals_up_x_remaining"] = df["min_remaining"] * df["home_goals_up"]
+    df["goals_up_x_remaining"] = df["min_remaining"] * df["goal_diff"]
 
-    return df
+    return df.drop(['goals_home', 'goals_away'], axis=1)
 
 
 def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
@@ -154,13 +154,18 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # Get relevant events only
     df = df[df['type'].isin(relevant_events)]
 
+
     # Encode shot types
     df = encode_shot_types(df)
 
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
-    df['angle'] = compute_angle_to_goal(df)
+    df['angle_to_center'] = compute_angle_to_goal(df)
+    df['goal_opening_angle'] = compute_goal_opening_angle(df)
     
+    df = add_score_features(df)
+    df = add_on_target_prob(df)
+
     if compute_solid_angle:
         df['solid_angle'] = df.apply(
             lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1

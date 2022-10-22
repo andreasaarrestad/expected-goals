@@ -42,8 +42,11 @@ def find_prev_event(prev_events):
 
 def encode_prev_event(df: pd.DataFrame):
     df['prev_type'] = df.rolling(6, closed='left')['type'].apply(find_prev_event)
-    event_labels = {150: 'freekick', 154: 'corner', 157: 'save', 161: 'penalty', 172: 'blocked_shot', 1029: 'dangerous_attack'}
-    df['prev_type'] = df['prev_type'].map(event_labels).fillna('other')
+    event_labels = {
+        150: 'preceding_freekick', 154: 'preceding_corner', 157: 'preceding_save', 
+        161: 'preceding_penalty', 172: 'preceding_blocked_shot', 1029: 'preceding_dangerous_attack'
+    }
+    df['prev_type'] = df['prev_type'].map(event_labels).fillna('preceding_other')
     df = pd.concat([df, pd.get_dummies(df['prev_type'])], axis=1)
     return df.drop('prev_type', axis=1)
 
@@ -65,6 +68,7 @@ def get_relative_coordinates(df):
 
     return df['posx'], df['posy']
         
+
 def compute_distance_to_goal(df):
     """
     Computes the euclidean distance to the goal given the relative and scaled position on the pitch.  
@@ -74,6 +78,13 @@ def compute_distance_to_goal(df):
     
     return distance
 
+def compute_goal_opening_angle(df):
+    x, y = get_relative_coordinates(df)
+    angle1 = np.arctan((y + GOAL_WIDTH/2) / x)
+    angle2 = np.arctan((y - GOAL_WIDTH / 2) / x)
+
+    return angle1 - angle2
+    
 def compute_angle_to_goal(df):
     """
     Computes the radian angle to the goal from a relative position on the pitch.
