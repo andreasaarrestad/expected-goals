@@ -22,10 +22,28 @@ def get_teams(teams_df):
 
     return home_team, away_team
 
+def get_shots(dir, filename):
+    shotsontarget = pd.read_xml(dir+filename, iterparse={'shotsontarget': ['t1', 't2']})
+    shotsoftarget = pd.read_xml(dir+filename, iterparse={'shotsofftarget': ['t1', 't2']})
+    shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
+
+    home_team = [shotsontarget.t1.values[0], shotsoftarget.t1.values[0], shotsblocked.t1.values[0]]
+    away_team = [shotsontarget.t2.values[0], shotsoftarget.t2.values[0], shotsblocked.t2.values[0]]
+
+    return home_team, away_team
+
+
+
 def read_xml(dir='./startcode/', num_games = False):
     # Iterate over files in dir
     dfs = []
+
+    if num_games is False:
+        num_games = len(os.listdir(dir))
+    
     for i, filename in enumerate(os.listdir(dir)):
+        if i>=num_games:
+            break
 
         events_df = pd.read_xml(dir + filename, iterparse=EVENTS_PARSER)
         teams_df = pd.read_xml(dir + filename, iterparse=TEAM_NAME_PARSER)
@@ -35,6 +53,16 @@ def read_xml(dir='./startcode/', num_games = False):
         events_df['home_team'] = home_team
         events_df['away_team'] = away_team
 
+        shots = get_shots(dir, filename)
+        events_df['home_shots_target'] = shots[0][0]
+        events_df['away_shots_target'] = shots[1][0]
+        events_df['home_shots_off_target'] = shots[0][1]
+        events_df['away_shots_off_target'] = shots[1][1]
+        events_df['home_shots_blocked'] = shots[0][2]
+        events_df['away_shots_blocked'] = shots[1][2]
+        events_df['home_shots'] = events_df['home_shots_target'] + events_df['home_shots_off_target'] + events_df['home_shots_blocked']
+        events_df['away_shots'] = events_df['away_shots_target'] + events_df['away_shots_off_target'] + events_df['away_shots_blocked']
+        
         events_df['match_id'] = i
 
         dfs.append(events_df)
@@ -82,7 +110,7 @@ def add_cumulative_gamestate(df):
 
     return df
 
-def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}):
+def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
     # Compute solid angle is time consuming, optional
 

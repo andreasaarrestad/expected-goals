@@ -1,2 +1,4 @@
 *.xml
 *.json
+*.pyc
+*.cpython
