@@ -159,15 +159,17 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # Encode shot types
     df = encode_shot_types(df)
 
+    # shot type
+    df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
+
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
     df['angle'] = compute_angle_to_goal(df)
     if compute_solid_angle:
         df['solid_angle'] = df.apply(
-            lambda row: compute_positional_features(row['posx'], row['posy'], row['side']), axis=1
+            lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1
         )
 
-    df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
     return df
 
     
