@@ -22,7 +22,7 @@ def get_teams(teams_df):
 
     return home_team, away_team
 
-def read_xml(dir='./startcode/', num_games = False):
+def read_xml(dir='./data/', num_games = False):
     # Iterate over files in dir
     dfs = []
     for i, filename in enumerate(os.listdir(dir)):
@@ -82,7 +82,7 @@ def add_cumulative_gamestate(df):
 
     return df
 
-def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}):
+def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
     # Compute solid angle is time consuming, optional
 
