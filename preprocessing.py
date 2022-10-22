@@ -86,7 +86,7 @@ def get_relative_coordinates_to_goal(x, y, is_home_team = True):
         
 
     
-def compute_solid_angle_to_goal(rel_x, rel_y, rel_z=0.0001):
+def compute_solid_angle_to_goal(rel_x, rel_y, rel_z=0.0001, is_header=False):
     """ 
     Computes the solid angle of a point on the field given the relative distances to the goal. This is used
     to quantify the scoring space given by the area within the goalmouth which is feasible for scoring. The 
@@ -97,19 +97,27 @@ def compute_solid_angle_to_goal(rel_x, rel_y, rel_z=0.0001):
 
     def theta_1(phi): return np.arctan(1/((rel_z+(GOAL_WIDTH/2))*np.cos(phi)/rel_x))
     def theta_2(phi): return np.arctan(1/((rel_z*np.cos(phi)/rel_x))) 
+    def compute_length_weight(distance):
+        a = 1
+        if not is_header:
+            b = 50
+        else:
+            b = 16.5
+        return b - a*distance
 
     phi_1 = np.arctan((rel_y-(GOAL_WIDTH/2))/rel_x) # angle to the goal post with the smaller x coordinate
     phi_2 = np.arctan((rel_y+(GOAL_WIDTH/2))/rel_x) # angle to the goal post with the larger x coordinate
-    
-    f = lambda theta, phi: np.sin(theta)
+    distance = distance = np.sqrt((rel_x**2) + (rel_y**2))
+    length_weight = compute_length_weight(distance) 
+    f = lambda theta, phi: np.sin(theta)*length_weight
     omega = integrate.dblquad(f, phi_1, phi_2, theta_1, theta_2)
     return omega[0]
 
 
-def compute_positional_features(x, y, is_home):
+def compute_positional_features(x, y, is_home, is_header):
     scaled_x, scaled_y = get_scaled_coordinates(x, y)
     relative_x, relative_y = get_relative_coordinates_to_goal(scaled_x, scaled_y, is_home)
-    solid_angle = compute_solid_angle_to_goal(relative_x, relative_y)
+    solid_angle = compute_solid_angle_to_goal(relative_x, relative_y, is_header=is_header)
     return solid_angle
 
 

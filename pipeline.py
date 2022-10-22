@@ -25,7 +25,13 @@ def get_teams(teams_df):
 def read_xml(dir='./data/', num_games = False):
     # Iterate over files in dir
     dfs = []
+
+    if num_games is False:
+        num_games = len(os.listdir(dir))
+    
     for i, filename in enumerate(os.listdir(dir)):
+        if i>=num_games:
+            break
 
         events_df = pd.read_xml(dir + filename, iterparse=EVENTS_PARSER)
         teams_df = pd.read_xml(dir + filename, iterparse=TEAM_NAME_PARSER)
@@ -35,12 +41,22 @@ def read_xml(dir='./data/', num_games = False):
         events_df['home_team'] = home_team
         events_df['away_team'] = away_team
 
+        shots = get_shots(dir, filename)
+        events_df['home_shots_target'] = shots[0][0]
+        events_df['away_shots_target'] = shots[1][0]
+        events_df['home_shots_off_target'] = shots[0][1]
+        events_df['away_shots_off_target'] = shots[1][1]
+        events_df['home_shots_blocked'] = shots[0][2]
+        events_df['away_shots_blocked'] = shots[1][2]
+        events_df['home_shots'] = events_df['home_shots_target'] + events_df['home_shots_off_target'] + events_df['home_shots_blocked']
+        events_df['away_shots'] = events_df['away_shots_target'] + events_df['away_shots_off_target'] + events_df['away_shots_blocked']
+        
         events_df['match_id'] = i
 
         dfs.append(events_df)
 
     # Concat and get relevant events
-    df = pd.concat(dfs).reset_index()
+    df = pd.concat(dfs).reset_index(drop=True)
 
     return df
 
@@ -59,28 +75,48 @@ def add_cumulative_gamestate(df):
     df[['yellow_card_home_cum','yellow_card_away_cum']] = df[['yellow_card_home_cum','yellow_card_away_cum']].fillna(0)
     df[['yellow_card_home_cum','yellow_card_away_cum']] = df.groupby('match_id')[['yellow_card_home_cum', 'yellow_card_away_cum']].cumsum()
 
-    # attacks
+    # attacks / min
     df.loc[(df['type'] == 1126) & (df['side'] == 'home'), 'attacks_home_cum'] = 1
     df.loc[(df['type'] == 1126) & (df['side'] == 'away'), 'attacks_away_cum'] = 1
     df[['attacks_home_cum','attacks_away_cum']] = df[['attacks_home_cum','attacks_away_cum']].fillna(0)
-    df[['attacks_home_cum','attacks_away_cum']] = df.groupby('match_id')[['attacks_home_cum', 'attacks_away_cum']].cumsum()
+    df[['attacks_home_cum','attacks_away_cum']] = df.groupby('match_id')[['attacks_home_cum', 'attacks_away_cum']].cumsum().div(df['minutes'].replace(0,1), axis=0)
 
-    # dangerous attacks
+    # dangerous attacks / min
     df.loc[(df['type'] == 1029) & (df['side'] == 'home'), 'dangerous_attacks_home_cum'] = 1
     df.loc[(df['type'] == 1029) & (df['side'] == 'away'), 'dangerous_attacks_away_cum'] = 1
     df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']].fillna(0)
-    df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df.groupby('match_id')[['dangerous_attacks_home_cum', 'dangerous_attacks_away_cum']].cumsum()
+    df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df.groupby('match_id')[['dangerous_attacks_home_cum', 'dangerous_attacks_away_cum']].cumsum().div(df['minutes'].replace(0,1), axis=0)
 
-    # turnover 
+    # turnover / min
     df['prev_side'] = df.groupby('match_id')['side'].shift()
     home_loses_possession = (df['prev_side'] == 'home') & (df['side'] == 'away')
     away_loses_possession = (df['side'] == 'home') & (df['prev_side'] == 'away')
     df.loc[home_loses_possession | away_loses_possession, 'turnover_cum'] = 1
     df['turnover_cum'] = df['turnover_cum'].fillna(0)
     df['turnover_cum'] = df.groupby('match_id')['turnover_cum'].cumsum()
-    df.drop(['prev_side'], axis=1)
+    df['turnover_cum']= df['turnover_cum'].div(df['minutes'].replace(0,1), axis=0)
+    df.drop(['prev_side'], axis=1, inplace=True)
 
     return df
+
+def add_score_features(df: pd.DataFrame) -> pd.DataFrame:
+    score = df["matchscore"].str.split(":", n = 1, expand = True)
+
+    df["goals_home"] = (score[0]).astype(int)
+    df["goals_away"] = (score[1]).astype(int)
+
+    df["home_goals_up"] = df["goals_home"] - df["goals_away"]
+    df["away_goals_up"] = df["goals_away"] - df["goals_home"]
+    
+    df["home_lead"] = (df["goals_home"] > df["goals_away"]).astype(int)
+    df["away_lead"] = (df["goals_away"] > df["goals_home"]).astype(int)
+    df.drop(columns = ["away_goals_up", "matchscore"], inplace = True)
+
+    df["min_remaining"] = 90 - df["minutes"]
+    df["goals_up_x_remaining"] = df["min_remaining"] * df["home_goals_up"]
+
+    return df
+
 
 def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
@@ -88,31 +124,32 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
 
     df = read_xml(num_games = num_games)
 
-    # engineer cumulative game state features
-    df = add_cumulative_gamestate(df)
-
-    # Get relevant events only
-    df = df[df['type'].isin(relevant_events)]
-
-    # Encode shot types
-    df = encode_shot_types(df)
-
-    
-
-    # Get quarter of the match
+     # Get quarter of the match
     df['minutes'] = df['mtime'].str.replace(r'(\:.*)', '', regex=True).astype(int)
     df['quarter'] = pd.cut(df['minutes'], bins=[0, 15, 30, 45, 60, 75, 120], labels=False, retbins=True, right=False)[0]
 
-    # Distance angle
-    df['distance'] = compute_distance_to_goal(df)
-    df['angle'] = compute_angle_to_goal(df)
-    
-    if compute_solid_angle:
-        df['solid_angle'] = df.apply(
-            lambda row: compute_positional_features(row['posx'], row['posy'], row['side']), axis=1
-        )
+    # engineer cumulative game state features
+    df = add_cumulative_gamestate(df)
 
-    df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
+
+    # # Get relevant events only
+    # df = df[df['type'].isin(relevant_events)]
+
+    # # Encode shot types
+    # df = encode_shot_types(df)
+
+    # # shot type
+    # df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
+
+    # # Distance angle
+    # df['distance'] = compute_distance_to_goal(df)
+    # df['angle'] = compute_angle_to_goal(df)
+    
+    # if compute_solid_angle:
+    #     df['solid_angle'] = df.apply(
+    #         lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1
+    #     )
+
     return df
 
     
