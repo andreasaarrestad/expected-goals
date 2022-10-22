@@ -25,7 +25,7 @@ def get_teams(teams_df):
 def read_xml(dir='./data/'):
     # Iterate over files in dir
     dfs = []
-    for filename in os.listdir(dir):
+    for i, filename in enumerate(os.listdir(dir)):
 
         events_df = pd.read_xml(dir + filename, iterparse=EVENTS_PARSER)
         teams_df = pd.read_xml(dir + filename, iterparse=TEAM_NAME_PARSER)
@@ -34,6 +34,8 @@ def read_xml(dir='./data/'):
         
         events_df['home_team'] = home_team
         events_df['away_team'] = away_team
+
+        events_df['match_id'] = i
 
         dfs.append(events_df)
 
@@ -54,6 +56,8 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # Encode shot types
     df = encode_shot_types(df)
 
+    
+
     # Get quarter of the match
     df['minutes'] = df['mtime'].str.replace(r'(\:.*)', '', regex=True).astype(int)
     df['quarter'] = pd.cut(df['minutes'], bins=[0, 15, 30, 45, 60, 75, 120], labels=False, retbins=True, right=False)[0]
@@ -61,11 +65,11 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
     df['angle'] = compute_angle_to_goal(df)
+    
     if compute_solid_angle:
         df['solid_angle'] = df.apply(
             lambda row: compute_positional_features(row['posx'], row['posy'], row['side']), axis=1
         )
-
 
     df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
 
