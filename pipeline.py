@@ -40,7 +40,7 @@ def read_xml(dir='./startcode/', num_games = False):
         dfs.append(events_df)
 
     # Concat and get relevant events
-    df = pd.concat(dfs).reset_index()
+    df = pd.concat(dfs).reset_index(drop=True)
 
     return df
 
@@ -78,7 +78,7 @@ def add_cumulative_gamestate(df):
     df.loc[home_loses_possession | away_loses_possession, 'turnover_cum'] = 1
     df['turnover_cum'] = df['turnover_cum'].fillna(0)
     df['turnover_cum'] = df.groupby('match_id')['turnover_cum'].cumsum()
-    df.drop(['prev_side'], axis=1)
+    df = df.drop(['prev_side'], axis=1)
 
     return df
 
