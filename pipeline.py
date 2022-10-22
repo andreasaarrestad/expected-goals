@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal
+from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal, compute_if_shot_is_in_boxes
 
 SEED = 42
 EVENTS_PARSER = {"event": ["type", "stime", "side", "mtime", "info", 'posx', 'posy', "matchscore", 'extrainfo']}
@@ -44,7 +44,7 @@ def get_shots(dir, filename):
 
 
 
-def read_xml(dir='startcode/', num_games = False):
+def read_xml(dir='data/', num_games = False):
     # Iterate over files in dir
     dfs = []
 
@@ -72,7 +72,6 @@ def read_xml(dir='startcode/', num_games = False):
         events_df['away_shots_blocked'] = shots[1][2]
         events_df['home_shots'] = events_df['home_shots_target'] + events_df['home_shots_off_target'] + events_df['home_shots_blocked']
         events_df['away_shots'] = events_df['away_shots_target'] + events_df['away_shots_off_target'] + events_df['away_shots_blocked']
-        
         events_df['match_id'] = i
 
         dfs.append(events_df)
@@ -162,9 +161,12 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # shot type
     df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
 
+    # compute if the shot is done within one of the boxes
+    df = compute_if_shot_is_in_boxes(df)
+
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
-    df['angle'] = compute_angle_to_goal(df)
+    df['angle'] = compute_angle_to_goal(df, between_goal_posts=True)
     if compute_solid_angle:
         df['solid_angle'] = df.apply(
             lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1
