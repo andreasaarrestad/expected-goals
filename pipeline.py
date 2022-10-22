@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal
+from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal, encode_prev_event
 
 SEED = 42
 EVENTS_PARSER = {"event": ["type", "stime", "side", "mtime", "info", 'posx', 'posy', "matchscore", 'extrainfo']}
@@ -20,6 +20,24 @@ def get_teams(teams_df):
     elif 't2namenatural' in teams_df.columns:
         away_team = teams_df['t2namenatural'].iloc[0]
 
+    return home_team, away_team
+
+def get_shots(dir, filename):
+    # try statements to cover ParserError if xml does not have the right tag
+    try:
+        shotsontarget = pd.read_xml(dir+filename, iterparse={'shotsontarget': ['t1', 't2']})
+    except:
+        shotsontarget = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    try:
+        shotsoftarget = pd.read_xml(dir+filename, iterparse={'shotsofftarget': ['t1', 't2']})
+    except:
+        shotsoftarget = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    try:
+        shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
+    except:
+        shotsblocked = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    home_team = [shotsontarget.t1.values[0], shotsoftarget.t1.values[0], shotsblocked.t1.values[0]]
+    away_team = [shotsontarget.t2.values[0], shotsoftarget.t2.values[0], shotsblocked.t2.values[0]]
     return home_team, away_team
 
 def read_xml(dir='./data/', num_games = False):
@@ -131,24 +149,22 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # engineer cumulative game state features
     df = add_cumulative_gamestate(df)
 
+    df = encode_prev_event(df)
 
-    # # Get relevant events only
-    # df = df[df['type'].isin(relevant_events)]
+    # Get relevant events only
+    df = df[df['type'].isin(relevant_events)]
 
-    # # Encode shot types
-    # df = encode_shot_types(df)
+    # Encode shot types
+    df = encode_shot_types(df)
 
-    # # shot type
-    # df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
-
-    # # Distance angle
-    # df['distance'] = compute_distance_to_goal(df)
-    # df['angle'] = compute_angle_to_goal(df)
+    # Distance angle
+    df['distance'] = compute_distance_to_goal(df)
+    df['angle'] = compute_angle_to_goal(df)
     
-    # if compute_solid_angle:
-    #     df['solid_angle'] = df.apply(
-    #         lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1
-    #     )
+    if compute_solid_angle:
+        df['solid_angle'] = df.apply(
+            lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1
+        )
 
     return df
 
