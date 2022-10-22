@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 import os
+from function import add_on_target_prob
 
-from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal, compute_if_shot_is_in_boxes
+from preprocessing import encode_shot_types, compute_positional_features, compute_distance_to_goal, compute_angle_to_goal, compute_if_shot_is_in_boxes, encode_prev_event
 
 SEED = 42
 EVENTS_PARSER = {"event": ["type", "stime", "side", "mtime", "info", 'posx', 'posy', "matchscore", 'extrainfo']}
@@ -36,15 +37,11 @@ def get_shots(dir, filename):
         shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
     except:
         shotsblocked = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
-
     home_team = [shotsontarget.t1.values[0], shotsoftarget.t1.values[0], shotsblocked.t1.values[0]]
     away_team = [shotsontarget.t2.values[0], shotsoftarget.t2.values[0], shotsblocked.t2.values[0]]
-
     return home_team, away_team
 
-
-
-def read_xml(dir='data/', num_games = False):
+def read_xml(dir='./data/', num_games = False):
     # Iterate over files in dir
     dfs = []
 
@@ -126,17 +123,16 @@ def add_score_features(df: pd.DataFrame) -> pd.DataFrame:
     df["goals_home"] = (score[0]).astype(int)
     df["goals_away"] = (score[1]).astype(int)
 
-    df["home_goals_up"] = df["goals_home"] - df["goals_away"]
-    df["away_goals_up"] = df["goals_away"] - df["goals_home"]
+    df["goal_diff"] = np.abs(df["goals_home"] - df["goals_away"])
+    
     
     df["home_lead"] = (df["goals_home"] > df["goals_away"]).astype(int)
     df["away_lead"] = (df["goals_away"] > df["goals_home"]).astype(int)
-    df.drop(columns = ["away_goals_up", "matchscore"], inplace = True)
 
     df["min_remaining"] = 90 - df["minutes"]
-    df["goals_up_x_remaining"] = df["min_remaining"] * df["home_goals_up"]
+    df["goals_up_x_remaining"] = df["min_remaining"] * df["goal_diff"]
 
-    return df
+    return df.drop(['goals_home', 'goals_away'], axis=1)
 
 
 def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
@@ -152,14 +148,14 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # engineer cumulative game state features
     df = add_cumulative_gamestate(df)
 
+    df = encode_prev_event(df)
+
     # Get relevant events only
     df = df[df['type'].isin(relevant_events)]
 
+
     # Encode shot types
     df = encode_shot_types(df)
-
-    # shot type
-    df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
 
     # compute if the shot is done within one of the boxes
     df = compute_if_shot_is_in_boxes(df)
@@ -167,6 +163,10 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
     df['angle'] = compute_angle_to_goal(df, between_goal_posts=True)
+
+    df = add_score_features(df)
+    df = add_on_target_prob(df)
+
     if compute_solid_angle:
         df['solid_angle'] = df.apply(
             lambda row: compute_positional_features(row['posx'], row['posy'], row['side'], row['header']), axis=1

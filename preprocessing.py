@@ -17,7 +17,7 @@ def get_goal_type(extrainfo: pd.Series):
 # Encode shot types
 def encode_shot_types(df: pd.DataFrame):
 
-    # Goals
+    # Goals.
     df.loc[df['type'] == 30, 'goal'] = 1
     df.loc[df['type'] != 30, 'goal'] = 0
 
@@ -27,7 +27,29 @@ def encode_shot_types(df: pd.DataFrame):
     df.loc[df['type'].isin([155, 156, 172]), 'shot_type'] = 'shot'
     df.loc[df['type'] == 666, 'shot_type'] = 'penalty'
 
-    return df
+    df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
+
+    return df.drop('shot_type', axis=1)
+
+
+# Events considered: free kick, corner, save, penalty, blocked shot, save, dangerous attack
+def find_prev_event(prev_events):
+    events = [150, 154, 157, 161, 172, 1029]
+    for event in prev_events.values:
+        if event in events:
+            return event
+    return np.nan
+
+def encode_prev_event(df: pd.DataFrame):
+    df['prev_type'] = df.rolling(6, closed='left')['type'].apply(find_prev_event)
+    event_labels = {
+        150: 'preceding_freekick', 154: 'preceding_corner', 157: 'preceding_save', 
+        161: 'preceding_penalty', 172: 'preceding_blocked_shot', 1029: 'preceding_dangerous_attack'
+    }
+    df['prev_type'] = df['prev_type'].map(event_labels).fillna('preceding_other')
+    df = pd.concat([df, pd.get_dummies(df['prev_type'])], axis=1)
+    return df.drop('prev_type', axis=1)
+
 
 def get_relative_coordinates(df):
 
@@ -53,6 +75,7 @@ def compute_if_shot_is_in_boxes(df):
     df['is_in_goal_area'] = ((rel_x <= 5.5) & (rel_y >= -9.16) & (rel_y <= 9.16)).astype(int)
     return df
         
+
 def compute_distance_to_goal(df):
     """
     Computes the euclidean distance to the goal given the relative and scaled position on the pitch.  
