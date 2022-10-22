@@ -13,7 +13,7 @@ def add_on_target_prob(df: pd.DataFrame) -> pd.DataFrame:
     data = df[["distance", "angle", "solid_angle", "on_target"]]
     data_train, data_test = train_test_split(data, test_size = 0.2, random_state = 43)
 
-    model = smf.ols(formula = "on_target ~ distance + solid_angle + distance * solid_angle", data = data_train)
+    model = smf.ols(formula = "on_target ~ distance + angle + distance * angle", data = data_train)
     result = model.fit()
 
     df["on_target_pred"] = result.predict(df)

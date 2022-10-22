@@ -97,26 +97,27 @@ def add_cumulative_gamestate(df):
     df[['yellow_card_home_cum','yellow_card_away_cum']] = df[['yellow_card_home_cum','yellow_card_away_cum']].fillna(0)
     df[['yellow_card_home_cum','yellow_card_away_cum']] = df.groupby('match_id')[['yellow_card_home_cum', 'yellow_card_away_cum']].cumsum()
 
-    # attacks
+    # attacks / min
     df.loc[(df['type'] == 1126) & (df['side'] == 'home'), 'attacks_home_cum'] = 1
     df.loc[(df['type'] == 1126) & (df['side'] == 'away'), 'attacks_away_cum'] = 1
     df[['attacks_home_cum','attacks_away_cum']] = df[['attacks_home_cum','attacks_away_cum']].fillna(0)
-    df[['attacks_home_cum','attacks_away_cum']] = df.groupby('match_id')[['attacks_home_cum', 'attacks_away_cum']].cumsum()
+    df[['attacks_home_cum','attacks_away_cum']] = df.groupby('match_id')[['attacks_home_cum', 'attacks_away_cum']].cumsum().div(df['minutes'].replace(0,1), axis=0)
 
-    # dangerous attacks
+    # dangerous attacks / min
     df.loc[(df['type'] == 1029) & (df['side'] == 'home'), 'dangerous_attacks_home_cum'] = 1
     df.loc[(df['type'] == 1029) & (df['side'] == 'away'), 'dangerous_attacks_away_cum'] = 1
     df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']].fillna(0)
-    df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df.groupby('match_id')[['dangerous_attacks_home_cum', 'dangerous_attacks_away_cum']].cumsum()
+    df[['dangerous_attacks_home_cum','dangerous_attacks_away_cum']] = df.groupby('match_id')[['dangerous_attacks_home_cum', 'dangerous_attacks_away_cum']].cumsum().div(df['minutes'].replace(0,1), axis=0)
 
-    # turnover 
+    # turnover / min
     df['prev_side'] = df.groupby('match_id')['side'].shift()
     home_loses_possession = (df['prev_side'] == 'home') & (df['side'] == 'away')
     away_loses_possession = (df['side'] == 'home') & (df['prev_side'] == 'away')
     df.loc[home_loses_possession | away_loses_possession, 'turnover_cum'] = 1
     df['turnover_cum'] = df['turnover_cum'].fillna(0)
     df['turnover_cum'] = df.groupby('match_id')['turnover_cum'].cumsum()
-    df = df.drop(['prev_side'], axis=1)
+    df['turnover_cum']= df['turnover_cum'].div(df['minutes'].replace(0,1), axis=0)
+    df.drop(['prev_side'], axis=1, inplace=True)
 
     return df
 
@@ -145,6 +146,10 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
 
     df = read_xml(num_games = num_games)
 
+     # Get quarter of the match
+    df['minutes'] = df['mtime'].str.replace(r'(\:.*)', '', regex=True).astype(int)
+    df['quarter'] = pd.cut(df['minutes'], bins=[0, 15, 30, 45, 60, 75, 120], labels=False, retbins=True, right=False)[0]
+
     # engineer cumulative game state features
     df = add_cumulative_gamestate(df)
 
@@ -153,10 +158,6 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
 
     # Encode shot types
     df = encode_shot_types(df)
-
-    # Get quarter of the match
-    df['minutes'] = df['mtime'].str.replace(r'(\:.*)', '', regex=True).astype(int)
-    df['quarter'] = pd.cut(df['minutes'], bins=[0, 15, 30, 45, 60, 75, 120], labels=False, retbins=True, right=False)[0]
 
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
