@@ -23,9 +23,19 @@ def get_teams(teams_df):
     return home_team, away_team
 
 def get_shots(dir, filename):
-    shotsontarget = pd.read_xml(dir+filename, iterparse={'shotsontarget': ['t1', 't2']})
-    shotsoftarget = pd.read_xml(dir+filename, iterparse={'shotsofftarget': ['t1', 't2']})
-    shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
+    # try statements to cover ParserError if xml does not have the right tag
+    try:
+        shotsontarget = pd.read_xml(dir+filename, iterparse={'shotsontarget': ['t1', 't2']})
+    except:
+        shotsontarget = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    try:
+        shotsoftarget = pd.read_xml(dir+filename, iterparse={'shotsofftarget': ['t1', 't2']})
+    except:
+        shotsoftarget = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
+    try:
+        shotsblocked = pd.read_xml(dir+filename, iterparse={'shotsblocked': ['t1', 't2']})
+    except:
+        shotsblocked = pd.DataFrame(columns=['t1', 't2'], data=[[0, 0]])
 
     home_team = [shotsontarget.t1.values[0], shotsoftarget.t1.values[0], shotsblocked.t1.values[0]]
     away_team = [shotsontarget.t2.values[0], shotsoftarget.t2.values[0], shotsblocked.t2.values[0]]
@@ -110,6 +120,25 @@ def add_cumulative_gamestate(df):
     df.drop(['prev_side'], axis=1, inplace=True)
 
     return df
+
+def add_score_features(df: pd.DataFrame) -> pd.DataFrame:
+    score = df["matchscore"].str.split(":", n = 1, expand = True)
+
+    df["goals_home"] = (score[0]).astype(int)
+    df["goals_away"] = (score[1]).astype(int)
+
+    df["home_goals_up"] = df["goals_home"] - df["goals_away"]
+    df["away_goals_up"] = df["goals_away"] - df["goals_home"]
+    
+    df["home_lead"] = (df["goals_home"] > df["goals_away"]).astype(int)
+    df["away_lead"] = (df["goals_away"] > df["goals_home"]).astype(int)
+    df.drop(columns = ["away_goals_up", "matchscore"], inplace = True)
+
+    df["min_remaining"] = 90 - df["minutes"]
+    df["goals_up_x_remaining"] = df["min_remaining"] * df["home_goals_up"]
+
+    return df
+
 
 def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
