@@ -22,10 +22,13 @@ def get_teams(teams_df):
 
     return home_team, away_team
 
-def read_xml(dir='./data/'):
+def read_xml(dir='./startcode/', num_games = False):
     # Iterate over files in dir
     dfs = []
-    for filename in os.listdir(dir):
+    if not num_games:
+        num_games = len(os.listdir(dir))
+    
+    for filename in os.listdir(dir)[:num_games]:
 
         events_df = pd.read_xml(dir + filename, iterparse=EVENTS_PARSER)
         teams_df = pd.read_xml(dir + filename, iterparse=TEAM_NAME_PARSER)
@@ -42,11 +45,11 @@ def read_xml(dir='./data/'):
 
     return df
 
-def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}):
+def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games = False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
     # Compute solid angle is time consuming, optional
 
-    df = read_xml()
+    df = read_xml(num_games = num_games)
 
     # Get relevant events only
     df = df[df['type'].isin(relevant_events)]
