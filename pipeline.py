@@ -34,7 +34,7 @@ def get_shots(dir, filename):
 
 
 
-def read_xml(dir='./startcode/', num_games = False):
+def read_xml(dir='./data/', num_games = False):
     # Iterate over files in dir
     dfs = []
 
@@ -109,6 +109,25 @@ def add_cumulative_gamestate(df):
     df = df.drop(['prev_side'], axis=1)
 
     return df
+
+def add_score_features(df: pd.DataFrame) -> pd.DataFrame:
+    score = df["matchscore"].str.split(":", n = 1, expand = True)
+
+    df["goals_home"] = (score[0]).astype(int)
+    df["goals_away"] = (score[1]).astype(int)
+
+    df["home_goals_up"] = df["goals_home"] - df["goals_away"]
+    df["away_goals_up"] = df["goals_away"] - df["goals_home"]
+    
+    df["home_lead"] = (df["goals_home"] > df["goals_away"]).astype(int)
+    df["away_lead"] = (df["goals_away"] > df["goals_home"]).astype(int)
+    df.drop(columns = ["away_goals_up", "matchscore"], inplace = True)
+
+    df["min_remaining"] = 90 - df["minutes"]
+    df["goals_up_x_remaining"] = df["min_remaining"] * df["home_goals_up"]
+
+    return df
+
 
 def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 172, 666}, num_games=False):
     # Relevant events defaults to goal, shot on/off target, shot blocked, pentaly missed
