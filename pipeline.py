@@ -44,7 +44,7 @@ def get_shots(dir, filename):
 
 
 
-def read_xml(dir='./data/', num_games = False):
+def read_xml(dir='startcode/', num_games = False):
     # Iterate over files in dir
     dfs = []
 
