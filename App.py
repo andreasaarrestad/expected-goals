@@ -108,8 +108,11 @@ def update_graph(dropdown_value, checklist_value, show_all):
         ]]
 
     X = df.drop('goal', axis=1, inplace=False)
-    X.loc[X['distance'].isna(), 'distance'] = X['distance'].mean()
-    X.loc[X['angle'].isna(), 'angle'] = X['angle'].mean()
+    # X.loc[X['distance'].isna(), 'distance'] = X['distance'].mean()
+    # X.loc[X['angle'].isna(), 'angle'] = X['angle'].mean()
+
+    X.loc[X['distance'].isna(), 'distance'] = 17.243
+    X.loc[X['angle'].isna(), 'angle'] = 0.433
 
     # predictiing probabilities and adding to dataframe
     xg_pred = model.predict_proba(X)
