@@ -1,4 +1,3 @@
-
 from dash import Dash, html, dcc, Input, Output
 import plotly.express as px
 import pandas as pd
@@ -6,31 +5,35 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import xgboost as xgb
 import os
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import f1_score, accuracy_score, mean_absolute_error
 pd.options.mode.chained_assignment = None  # default='warn'
 from plots import *
-
 from preprocessing import *
-
 from pipeline import *
+
+# loading event data
 df_merged = transform_events(num_games=50)
+
+# adding match column to fasciliatate dropdown meny where you can choose match
 df_merged['match'] = df_merged['home_team'] + "-" + df_merged['away_team']
+# all possible matches in df_merged
 possible_matches = df_merged['match'].unique()
 
+# loading models
 model = xgb.XGBClassifier(n_estimators = 50, max_depth = 7, alpha=0)
 model.load_model('test.json')
 
-## data loaded
 
+# creating dash app
 app = Dash(
     external_stylesheets=[dbc.themes.BOOTSTRAP]
 )
 
-
+# the left-hand side table
 table = dbc.Table(id='tab', bordered=True)
-
+# thre graph to the right
 graph = dcc.Graph(id='graph')
+
+# the choose match dropdown menu
 dropdown = dbc.Select(
     id="drop",
     options=[
@@ -39,26 +42,32 @@ dropdown = dbc.Select(
     ],
 )
 
+# choose all shots, only home team and only away team
 checklist = dbc.Select(id = 'check', options = [
     {'label': 'show all', 'value': 'show_all'},
     {'label': 'only home team', 'value': 'home'},
     {'label': 'only away team', 'value': 'away'},],
 )
 
+# enables displaying all shots in the dataset
 show_a = dcc.Checklist(id = 'checklist',
     options = [
         {'label': 'Show all games', 'value': 'show_all'},]
 )
 
+# the left hand side table
 tab1 = dbc.Card([dbc.Tab(dbc.Tab(table, label="Scatter", tab_id="scatter"))])
+# the right hand side elements
 tab2 = dbc.Card([dropdown, checklist, show_a, dbc.Tab(dbc.Tab(graph, label="2", tab_id="2"))])
 
+# the layout of the app
 app.layout = dbc.Container(html.Div(children=[
     html.H1(children='xG Dashboard'),
     dbc.Row([dbc.Col(tab1), dbc.Col(tab2)])]
     )
 )
 
+# a callback function that updates the page based on the dropdown and checklists
 @app.callback(
     Output(component_id='graph', component_property='figure'),
     Output(component_id = 'tab', component_property='children'),
@@ -67,6 +76,7 @@ app.layout = dbc.Container(html.Div(children=[
     Input(component_id='checklist', component_property='value')
 )
 def update_graph(dropdown_value, checklist_value, show_all):
+    # logic for deciding if all matches should be shown
     if type(show_all) == list:
         if show_all == []:
             show_all = False
@@ -75,16 +85,20 @@ def update_graph(dropdown_value, checklist_value, show_all):
     else:
         show_all = False
     
+    # handling no input case for match
     if dropdown_value == None:
         dropdown_value = possible_matches[0]
+    # handling no input case for home/all/away
     if checklist_value == None:
         checklist_value = 'show_all'
     
+    # filtering on match
     if not show_all:
         df_first = df_merged[df_merged['match'] == dropdown_value]
     else:
         df_first = df_merged
     
+    # the prediction frame
     df = df_first[['posx', 'posy', 'goal', 'side', 'minutes', 'quarter', 'distance', 'angle', 'header', 'penalty', 'shot', 'red_card_home_cum',
        'red_card_away_cum', 'yellow_card_home_cum', 'yellow_card_away_cum',
        'attacks_home_cum', 'attacks_away_cum', 'dangerous_attacks_home_cum',
@@ -92,10 +106,14 @@ def update_graph(dropdown_value, checklist_value, show_all):
 
     df['side'] = pd.to_numeric(df['side'].apply(lambda x: 1 if x=='away' else 0))
     X = df.drop('goal', axis=1, inplace=False)
+
+    # predictiing probabilities and adding to dataframe
     xg_pred = model.predict_proba(X)
     df_first['xG'] = xg_pred[:,1]
 
+    # creating the left hand siden table
     tab = create_table(df_first)
+    # filtering on home/away
     if checklist_value=='home' or checklist_value=='away':
         df_first = df_first[df_merged['side']==checklist_value]
 
