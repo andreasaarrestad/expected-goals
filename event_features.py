@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
 
+from sklearn.model_selection import train_test_split
+import statsmodels.formula.api as smf
+
 from scipy import integrate
 
 GOAL_WIDTH = 7.32
@@ -8,6 +11,31 @@ GOAL_HEIGHT = 2.44
 PITCH_WIDTH = 68
 PITCH_LENGTH = 105
 
+
+
+def add_on_target_prob(df: pd.DataFrame, modelchoice = "linear") -> pd.DataFrame:
+    on_target_ids = [30, 155]
+
+    df["on_target"] = (df["type"].isin(on_target_ids)).astype(int)
+
+    df["is_away"] = 1 - df.is_home
+
+    data = df[["distance", "angle", "on_target", "dangerous_attacks_home_cum", "dangerous_attacks_away_cum", "is_home", "is_away"]]
+
+    data_train, data_test = train_test_split(data, test_size = 0.2, random_state = 42)
+
+    formula_string = "on_target ~ distance + angle + distance * angle "
+
+    if modelchoice == "linear":
+        model = smf.ols(formula = formula_string, data = data_train)
+        result = model.fit()
+    elif modelchoice == "logit":
+        model = smf.logit(formula = formula_string, data = data_train)
+        result = model.fit()
+        
+    df["on_target_pred"] = result.predict(df)
+
+    return df
 
 def get_goal_type(extrainfo: pd.Series):
     # Defaults to shot
@@ -25,28 +53,9 @@ def encode_shot_types(df: pd.DataFrame):
 
     df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
     
+    return df.drop('shot_type', axis=1)
 
-    return df
 
-
-# Events considered: free kick, corner, save, penalty, blocked shot, save, dangerous attack
-def find_prev_event(prev_events):
-    events = [150, 154, 157, 161, 172, 1029]
-    for event in prev_events.values:
-        if event in events:
-            return event
-    return np.nan
-
-def encode_prev_event(df: pd.DataFrame):
-    df['prev_type'] = df['type'][::-1].rolling(6, closed='left').apply(find_prev_event)
-    event_labels = {
-        150: 'preceding_freekick', 154: 'preceding_corner', 157: 'preceding_save', 
-        161: 'preceding_penalty', 172: 'preceding_blocked_shot', 1029: 'preceding_dangerous_attack'
-    }
-    df['prev_type'] = df['prev_type'].map(event_labels).fillna('preceding_other')
-    df = pd.concat([df, pd.get_dummies(df['prev_type'])], axis=1)
-    
-    return df
 
 
 def get_relative_coordinates(df):
@@ -96,7 +105,6 @@ def compute_angle_to_goal(df, between_goal_posts=False):
     
     return np.arctan(y/x)
 
-##--------------------------------------##
 
 def get_scaled_coordinates(x, y):
     """
