@@ -14,11 +14,11 @@ from plots import *
 from preprocessing import *
 
 from pipeline import *
-df_merged = transform_events(num_games=1000)
+df_merged = transform_events(num_games=50)
 df_merged['match'] = df_merged['home_team'] + "-" + df_merged['away_team']
 possible_matches = df_merged['match'].unique()
 
-model = xgb.XGBClassifier()
+model = xgb.XGBClassifier(n_estimators = 50, max_depth = 7, alpha=0)
 model.load_model('test.json')
 
 ## data loaded
@@ -88,10 +88,12 @@ def update_graph(dropdown_value, checklist_value, show_all):
     df = df_first[['posx', 'posy', 'goal', 'side', 'minutes', 'quarter', 'distance', 'angle', 'header', 'penalty', 'shot', 'red_card_home_cum',
        'red_card_away_cum', 'yellow_card_home_cum', 'yellow_card_away_cum',
        'attacks_home_cum', 'attacks_away_cum', 'dangerous_attacks_home_cum',
-       'dangerous_attacks_away_cum', 'turnover_cum', ]]
+       'dangerous_attacks_away_cum', 'turnover_cum']]
+
     df['side'] = pd.to_numeric(df['side'].apply(lambda x: 1 if x=='away' else 0))
     X = df.drop('goal', axis=1, inplace=False)
     xg_pred = model.predict_proba(X)
+    print(xg_pred)
     df_first['xG'] = xg_pred[:,1]
 
     tab = create_table(df_first)
