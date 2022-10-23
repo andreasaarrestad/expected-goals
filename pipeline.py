@@ -144,11 +144,14 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
      # Get quarter of the match
     df['minutes'] = df['mtime'].str.replace(r'(\:.*)', '', regex=True).astype(int)
     df['quarter'] = pd.cut(df['minutes'], bins=[0, 15, 30, 45, 60, 75, 120], labels=False, retbins=True, right=False)[0]
+    df['quarter'] = df['quarter'].fillna(0)
 
     # engineer cumulative game state features
     df = add_cumulative_gamestate(df)
 
     df = encode_prev_event(df)
+
+    df['is_home'] = (df['side'] == 'home').astype(int)
 
     # Get relevant events only
     df = df[df['type'].isin(relevant_events)]
@@ -165,7 +168,7 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     df['angle'] = compute_angle_to_goal(df, between_goal_posts=True)
 
     df = add_score_features(df)
-    df = add_on_target_prob(df)
+    df = add_on_target_prob(df, modelchoice='logit')
 
     if compute_solid_angle:
         df['solid_angle'] = df.apply(
