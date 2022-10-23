@@ -18,3 +18,4 @@ The functions for extracting these features are pipelined in `pipeline.py`. The 
 
 The model is fitted in `model_fitting.ipynb`. The pipeline corresponds to the best model found thus far, using all features. This is the model used in the dashboard (`App.py`).
 
+Run it by navigating to the project repository and run `python App.py`.
