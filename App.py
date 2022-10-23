@@ -19,7 +19,7 @@ df_merged['match'] = df_merged['home_team'] + "-" + df_merged['away_team']
 possible_matches = df_merged['match'].unique()
 
 # loading models
-model = xgb.XGBClassifier(n_estimators = 50, max_depth = 7, alpha=0)
+model = xgb.XGBClassifier()
 model.load_model('model.txt')
 
 
