@@ -7,7 +7,8 @@ import xgboost as xgb
 import os
 pd.options.mode.chained_assignment = None  # default='warn'
 from plots import *
-from preprocessing import *
+from event_features import *
+from game_state_features import *
 from pipeline import *
 
 # Loading event data
@@ -22,7 +23,6 @@ possible_matches = df_merged['match'].unique()
 # Loading models
 model = xgb.XGBClassifier()
 model.load_model('model.txt')
-
 
 # Creating dash app
 app = Dash(
@@ -105,13 +105,14 @@ def update_graph(dropdown_value, checklist_value, show_all):
     # The prediction frame
     df = df_first[['red_card_home_cum', 'red_card_away_cum', 'yellow_card_home_cum', 'yellow_card_away_cum',
         'attacks_home_cum', 'attacks_away_cum', 'dangerous_attacks_home_cum', 'dangerous_attacks_away_cum',
-        'quarter', 'distance', 'angle', 'turnover_cum', 'header', 'penalty',#'shot', 
-        'preceding_corner', 'preceding_freekick', 'preceding_other', 'preceding_save', 
-        'preceding_blocked_shot', 'preceding_dangerous_attack', 'preceding_penalty', 
-        'on_target_pred', 'goal_diff', 'goals_up_x_remaining', 'is_home', 'home_lead', 'away_lead', 'goal' 
+        'quarter', 'distance', 'angle', 'angle_over_distance', 'turnover_cum', 'header', 'penalty',#'shot', 
+        'preceding_corner', 'preceding_freekick', 'preceding_save', #'preceding_other', 
+        'preceding_blocked_shot', 'preceding_dangerous_attack', 'preceding_penalty',
+        'on_target_pred', 'goal_diff', 'goals_up_x_remaining', 'is_home', 'home_lead', 'away_lead',
+        'is_in_penalty_area', 'is_in_goal_area', 'weather_condition', 'pitch_condition'
         ]]
 
-    X = df.drop('goal', axis=1, inplace=False)
+    X = df #.drop('goal', axis=1, inplace=False)
     
     # Discarded changes
     # X.loc[X['distance'].isna(), 'distance'] = X['distance'].mean()
