@@ -10,30 +10,32 @@ from plots import *
 from preprocessing import *
 from pipeline import *
 
-# loading event data
+# Loading event data
 df_merged = transform_events(num_games=50)
 
-# adding match column to fasciliatate dropdown meny where you can choose match
+# Adding match column to fasciliatate dropdown meny where you can choose match
 df_merged['match'] = df_merged['home_team'] + "-" + df_merged['away_team']
-# all possible matches in df_merged
+
+# All possible matches in df_merged
 possible_matches = df_merged['match'].unique()
 
-# loading models
+# Loading models
 model = xgb.XGBClassifier()
 model.load_model('model.txt')
 
 
-# creating dash app
+# Creating dash app
 app = Dash(
     external_stylesheets=[dbc.themes.BOOTSTRAP]
 )
 
-# the left-hand side table
+# The left-hand side table
 table = dbc.Table(id='tab', bordered=True)
-# thre graph to the right
+
+# The graph to the right
 graph = dcc.Graph(id='graph')
 
-# the choose match dropdown menu
+# The choose match dropdown menu
 dropdown = dbc.Select(
     id="drop",
     options=[
@@ -42,32 +44,33 @@ dropdown = dbc.Select(
     ],
 )
 
-# choose all shots, only home team and only away team
+# Choose all shots, only home team and only away team
 checklist = dbc.Select(id = 'check', options = [
     {'label': 'show all', 'value': 'show_all'},
     {'label': 'only home team', 'value': 'home'},
     {'label': 'only away team', 'value': 'away'},],
 )
 
-# enables displaying all shots in the dataset
+# Enables displaying all shots in the dataset
 show_a = dcc.Checklist(id = 'checklist',
     options = [
         {'label': 'Show all games', 'value': 'show_all'},]
 )
 
-# the left hand side table
+# The left hand side table
 tab1 = dbc.Card([dbc.Tab(dbc.Tab(table, label="Scatter", tab_id="scatter"))])
-# the right hand side elements
+
+# The right hand side elements
 tab2 = dbc.Card([dropdown, checklist, show_a, dbc.Tab(dbc.Tab(graph, label="2", tab_id="2"))])
 
-# the layout of the app
+# The layout of the app
 app.layout = dbc.Container(html.Div(children=[
     html.H1(children='xG Dashboard'),
     dbc.Row([dbc.Col(tab1), dbc.Col(tab2)])]
     )
 )
 
-# a callback function that updates the page based on the dropdown and checklists
+# A callback function that updates the page based on the dropdown and checklists
 @app.callback(
     Output(component_id='graph', component_property='figure'),
     Output(component_id = 'tab', component_property='children'),
@@ -76,7 +79,7 @@ app.layout = dbc.Container(html.Div(children=[
     Input(component_id='checklist', component_property='value')
 )
 def update_graph(dropdown_value, checklist_value, show_all):
-    # logic for deciding if all matches should be shown
+    # Logic for deciding if all matches should be shown
     if type(show_all) == list:
         if show_all == []:
             show_all = False
@@ -85,20 +88,21 @@ def update_graph(dropdown_value, checklist_value, show_all):
     else:
         show_all = False
     
-    # handling no input case for match
+    # Handling no input case for match
     if dropdown_value == None:
         dropdown_value = possible_matches[0]
-    # handling no input case for home/all/away
+    
+    # Handling no input case for home/all/away
     if checklist_value == None:
         checklist_value = 'show_all'
     
-    # filtering on match
+    # Filtering on match
     if not show_all:
         df_first = df_merged[df_merged['match'] == dropdown_value]
     else:
         df_first = df_merged
     
-    # the prediction frame
+    # The prediction frame
     df = df_first[['red_card_home_cum', 'red_card_away_cum', 'yellow_card_home_cum', 'yellow_card_away_cum',
         'attacks_home_cum', 'attacks_away_cum', 'dangerous_attacks_home_cum', 'dangerous_attacks_away_cum',
         'quarter', 'distance', 'angle', 'turnover_cum', 'header', 'penalty',#'shot', 
@@ -108,16 +112,23 @@ def update_graph(dropdown_value, checklist_value, show_all):
         ]]
 
     X = df.drop('goal', axis=1, inplace=False)
-    X.loc[X['distance'].isna(), 'distance'] = X['distance'].mean()
-    X.loc[X['angle'].isna(), 'angle'] = X['angle'].mean()
+    
+    # Discarded changes
+    # X.loc[X['distance'].isna(), 'distance'] = X['distance'].mean()
+    # X.loc[X['angle'].isna(), 'angle'] = X['angle'].mean()
 
-    # predictiing probabilities and adding to dataframe
+    X.loc[X['distance'].isna(), 'distance'] = 17.243
+    X.loc[X['angle'].isna(), 'angle'] = 0.433
+
+    # Predictiing probabilities and adding to dataframe
     xg_pred = model.predict_proba(X)
     df_first['xG'] = xg_pred[:,1]
 
-    # creating the left hand siden table
-    tab = create_table(df_first)
-    # filtering on home/away
+    # Creating the left hand siden table
+    df_tab = df_first[df_first['match'] == dropdown_value]
+    tab = create_table(df_tab)
+    
+    # Filtering on home/away
     if checklist_value=='home' or checklist_value=='away':
         df_first = df_first[df_merged['side']==checklist_value]
 
@@ -126,7 +137,8 @@ def update_graph(dropdown_value, checklist_value, show_all):
 def create_table(df):
     xg_team1 = df[df['side']=="home"]['xG'].sum()
     xg_team2 = df[df['side']=="away"]['xG'].sum()
-    # round xg_team1 and xg_team2 to 2 decimals
+    
+    # Round xg_team1 and xg_team2 to 2 decimals
     xg_team1 = '%.2f'%xg_team1
     xg_team2 = '%.2f'%xg_team2
     goals_team1 = df['matchscore'].iloc[-1][0]
