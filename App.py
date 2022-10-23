@@ -116,7 +116,8 @@ def update_graph(dropdown_value, checklist_value, show_all):
     df_first['xG'] = xg_pred[:,1]
 
     # creating the left hand siden table
-    tab = create_table(df_first)
+    df_tab = df_first[df_first['match'] == dropdown_value]
+    tab = create_table(df_tab)
     # filtering on home/away
     if checklist_value=='home' or checklist_value=='away':
         df_first = df_first[df_merged['side']==checklist_value]
