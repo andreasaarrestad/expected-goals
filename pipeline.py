@@ -71,6 +71,10 @@ def read_xml(dir='./data/', num_games = False):
         events_df['away_shots'] = events_df['away_shots_target'] + events_df['away_shots_off_target'] + events_df['away_shots_blocked']
         events_df['match_id'] = i
 
+        events_df['weather_condition'] = events_df.loc[events_df['type'] == 164, 'extrainfo'].iloc[-1] if (events_df['type'] == 164).sum() else 0
+        events_df['pitch_condition'] = events_df.loc[events_df['type'] == 1014, 'extrainfo'].iloc[-1] if (events_df['type'] == 1014).sum() else 0
+
+
         dfs.append(events_df)
 
     # Concat and get relevant events
@@ -141,7 +145,11 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
 
     df = read_xml(num_games = num_games)
 
-     # Get quarter of the match
+    # Goals.
+    df.loc[df['type'] == 30, 'goal'] = 1
+    df.loc[df['type'] != 30, 'goal'] = 0
+
+    # Get quarter of the match
     df['minutes'] = df['mtime'].str.replace(r'(\:.*)', '', regex=True).astype(int)
     df['quarter'] = pd.cut(df['minutes'], bins=[0, 15, 30, 45, 60, 75, 120], labels=False, retbins=True, right=False)[0]
     df['quarter'] = df['quarter'].fillna(0)
@@ -166,6 +174,8 @@ def transform_events(compute_solid_angle=False, relevant_events={30, 155, 156, 1
     # Distance angle
     df['distance'] = compute_distance_to_goal(df)
     df['angle'] = compute_angle_to_goal(df, between_goal_posts=True)
+
+    df['angle_over_distance'] = np.abs(df['angle']).div(df['distance'].replace(0, 0.01), axis=0)
 
     df = add_score_features(df)
     df = add_on_target_prob(df, modelchoice='logit')

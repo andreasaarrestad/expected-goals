@@ -17,10 +17,6 @@ def get_goal_type(extrainfo: pd.Series):
 # Encode shot types
 def encode_shot_types(df: pd.DataFrame):
 
-    # Goals.
-    df.loc[df['type'] == 30, 'goal'] = 1
-    df.loc[df['type'] != 30, 'goal'] = 0
-
     # Goal type
     df.loc[df['type'] == 30, 'shot_type'] = get_goal_type(df['extrainfo'])
     # Shot on target
@@ -28,8 +24,9 @@ def encode_shot_types(df: pd.DataFrame):
     df.loc[df['type'] == 666, 'shot_type'] = 'penalty'
 
     df = pd.concat([df, pd.get_dummies(df['shot_type'])], axis=1)
+    
 
-    return df.drop('shot_type', axis=1)
+    return df
 
 
 # Events considered: free kick, corner, save, penalty, blocked shot, save, dangerous attack
@@ -41,14 +38,15 @@ def find_prev_event(prev_events):
     return np.nan
 
 def encode_prev_event(df: pd.DataFrame):
-    df['prev_type'] = df.rolling(6, closed='left')['type'].apply(find_prev_event)
+    df['prev_type'] = df['type'][::-1].rolling(6, closed='left').apply(find_prev_event)
     event_labels = {
         150: 'preceding_freekick', 154: 'preceding_corner', 157: 'preceding_save', 
         161: 'preceding_penalty', 172: 'preceding_blocked_shot', 1029: 'preceding_dangerous_attack'
     }
     df['prev_type'] = df['prev_type'].map(event_labels).fillna('preceding_other')
     df = pd.concat([df, pd.get_dummies(df['prev_type'])], axis=1)
-    return df.drop('prev_type', axis=1)
+    
+    return df
 
 
 def get_relative_coordinates(df):
