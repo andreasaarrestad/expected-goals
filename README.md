@@ -14,5 +14,7 @@ We have divided the featuers into two groups:
 
 The functions for extracting these features are pipelined in `pipeline.py`. The function transforming the input data is `transform_events(·)`.
 
+## Inspecting the model
 
+The model is fitted in `model_fitting.ipynb`. The pipeline corresponds to the best model found thus far, using all features. This is the model used in the dashboard (`App.py`).
 
