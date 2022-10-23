@@ -20,7 +20,7 @@ possible_matches = df_merged['match'].unique()
 
 # loading models
 model = xgb.XGBClassifier(n_estimators = 50, max_depth = 7, alpha=0)
-model.load_model('test.json')
+model.load_model('model.txt')
 
 
 # creating dash app
@@ -99,13 +99,17 @@ def update_graph(dropdown_value, checklist_value, show_all):
         df_first = df_merged
     
     # the prediction frame
-    df = df_first[['posx', 'posy', 'goal', 'side', 'minutes', 'quarter', 'distance', 'angle', 'header', 'penalty', 'shot', 'red_card_home_cum',
-       'red_card_away_cum', 'yellow_card_home_cum', 'yellow_card_away_cum',
-       'attacks_home_cum', 'attacks_away_cum', 'dangerous_attacks_home_cum',
-       'dangerous_attacks_away_cum', 'turnover_cum']]
+    df = df_first[['red_card_home_cum', 'red_card_away_cum', 'yellow_card_home_cum', 'yellow_card_away_cum',
+        'attacks_home_cum', 'attacks_away_cum', 'dangerous_attacks_home_cum', 'dangerous_attacks_away_cum',
+        'quarter', 'distance', 'angle', 'turnover_cum', 'header', 'penalty',#'shot', 
+        'preceding_corner', 'preceding_freekick', 'preceding_other', 'preceding_save', 
+        'preceding_blocked_shot', 'preceding_dangerous_attack', 'preceding_penalty', 
+        'on_target_pred', 'goal_diff', 'goals_up_x_remaining', 'is_home', 'home_lead', 'away_lead', 'goal' 
+        ]]
 
-    df['side'] = pd.to_numeric(df['side'].apply(lambda x: 1 if x=='away' else 0))
     X = df.drop('goal', axis=1, inplace=False)
+    X.loc[X['distance'].isna(), 'distance'] = X['distance'].mean()
+    X.loc[X['angle'].isna(), 'angle'] = X['angle'].mean()
 
     # predictiing probabilities and adding to dataframe
     xg_pred = model.predict_proba(X)
