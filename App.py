@@ -93,7 +93,6 @@ def update_graph(dropdown_value, checklist_value, show_all):
     df['side'] = pd.to_numeric(df['side'].apply(lambda x: 1 if x=='away' else 0))
     X = df.drop('goal', axis=1, inplace=False)
     xg_pred = model.predict_proba(X)
-    print(xg_pred)
     df_first['xG'] = xg_pred[:,1]
 
     tab = create_table(df_first)
